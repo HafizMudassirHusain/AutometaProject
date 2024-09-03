@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DFA Automata Visualization</title>
+    <style>
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f4f8;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 900px;
+    margin: 50px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+h1 {
+    color: #333;
+}
+
+label {
+    margin-right: 10px;
+    font-weight: bold;
+}
+
+input, button {
+    margin-bottom: 10px;
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    width: 100%;
+    max-width: 300px;
+}
+
+button {
+    background-color: #4CAF50;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+    transform: scale(1.05);
+}
+
+#transitionTable {
+    margin: 20px 0;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+td, th {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+    font-size: 16px;
+}
+
+#visualization {
+    margin-top: 20px;
+    text-align: center;
+}
+
+#result {
+    font-weight: bold;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 18px;
+    color: #333;
+}
+
+svg {
+    border: 1px solid #ddd;
+    background-color: #f9f9f9;
+}
+
+circle {
+    cursor: pointer;
+    transition: fill 0.3s, transform 0.3s;
+}
+
+circle:hover {
+    fill: #ffcc00;
+    transform: scale(1.1);
+}
+
+path {
+    transition: stroke 0.3s;
+}
+
+path:hover {
+    stroke: #ff5733;
+}
+
+.marker {
+    fill: #000;
+}
+
+
+    </style>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>DFA Automata Visualization</h1>
+        <div id="setup">
+            <label for="numStates">Number of States:</label>
+            <input type="number" id="numStates" min="1">
+
+            <label for="numInputs">Number of Inputs:</label>
+            <input type="number" id="numInputs" min="1">
+
+            <label for="inputs">Inputs (comma separated):</label>
+            <input type="text" id="inputs" placeholder="Enter inputs (e.g., a,b)">
+
+            <label for="initialState">Initial State:</label>
+            <input type="text" id="initialState" placeholder="Enter initial state">
+
+            <label for="finalStates">Final States (comma separated):</label>
+            <input type="text" id="finalStates" placeholder="Enter final states">
+
+            <button onclick="createTransitionTable()">Create Transition Table</button>
+        </div>
+
+        <div id="transitionTable"></div>
+
+        <label for="inputString">Input String:</label>
+        <input type="text" id="inputString" placeholder="Enter input string">
+
+        <button onclick="verifyDFA()">Verify DFA</button>
+
+        <div id="visualization"></div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+function createTransitionTable() {
+    const numStates = parseInt(document.getElementById("numStates").value);
+    const numInputs = parseInt(document.getElementById("numInputs").value);
+    const inputs = document.getElementById("inputs").value.split(',').map(input => input.trim());
+
+    let table = "<table><tr><th>State</th>";
+    for (let input of inputs) {
+        table += `<th>${input}</th>`;
+    }
+    table += "</tr>";
+
+    for (let i = 0; i < numStates; i++) {
+        table += `<tr><td>q${i}</td>`;
+        for (let input of inputs) {
+            table += `<td><input type="text" id="q${i}_input${input}" placeholder="Enter state"></td>`;
+        }
+        table += "</tr>";
+    }
+
+    table += "</table>";
+    document.getElementById("transitionTable").innerHTML = table;
+}
+
+function verifyDFA() {
+    const inputString = document.getElementById("inputString").value;
+    const initialState = document.getElementById("initialState").value;
+    const finalStates = document.getElementById("finalStates").value.split(',').map(state => state.trim());
+    let currentState = initialState;
+
+    const transitionTable = {};
+    const numStates = parseInt(document.getElementById("numStates").value);
+    const inputs = document.getElementById("inputs").value.split(',').map(input => input.trim());
+
+    for (let i = 0; i < numStates; i++) {
+        const state = `q${i}`;
+        transitionTable[state] = {};
+        for (let input of inputs) {
+            transitionTable[state][input] = document.getElementById(`${state}_input${input}`).value;
+        }
+    }
+
+    visualizeDFA(transitionTable, initialState, finalStates, inputs, inputString);
+
+    for (let char of inputString) {
+        if (!inputs.includes(char)) {
+            displayResult("Invalid input string. Allowed inputs are: " + inputs.join(', '));
+            return;
+        }
+        const nextState = transitionTable[currentState][char];
+        if (!nextState) {
+            displayResult("Invalid DFA setup. Missing transition for state and input.");
+            return;
+        }
+        currentState = nextState;
+    }
+
+    const isAccepted = finalStates.includes(currentState);
+    displayResult(isAccepted ? "Accepted" : "Rejected");
+}
+
+function displayResult(message) {
+    document.getElementById("result").innerText = message;
+}
+
+function visualizeDFA(transitionTable, initialState, finalStates, inputs, inputString) {
+    const states = Object.keys(transitionTable);
+    const width = 800;
+    const height = 600;
+    const radius = 30;
+    const margin = 50;
+
+    d3.select("#visualization").html(""); // Clear previous visualization
+
+    const svg = d3.select("#visualization").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const angleStep = (2 * Math.PI) / states.length;
+    const statePositions = {};
+
+    states.forEach((state, index) => {
+        const angle = index * angleStep;
+        const x = centerX + (centerX - margin) * Math.cos(angle);
+        const y = centerY + (centerY - margin) * Math.sin(angle);
+        statePositions[state] = { x, y };
+
+        svg.append("circle")
+            .attr("cx", x)
+            .attr("cy", y)
+            .attr("r", radius)
+            .attr("stroke", "black")
+            .attr("stroke-width", "2")
+            .attr("fill", finalStates.includes(state) ? "url(#grad1)" : "white")
+            .on("mouseover", function() { d3.select(this).attr("fill", "#ffcc00").attr("r", radius * 1.1); })
+            .on("mouseout", function() { d3.select(this).attr("fill", finalStates.includes(state) ? "url(#grad1)" : "white").attr("r", radius); })
+            .on("click", function() { alert(`State: ${state}\nInitial State: ${initialState === state}\nFinal State: ${finalStates.includes(state)}`); });
+
+        svg.append("text")
+            .attr("x", x)
+            .attr("y", y + radius / 2)
+            .attr("text-anchor", "middle")
+            .attr("font-size", "14")
+            .text(state);
+
+        if (state === initialState) {
+            svg.append("line")
+                .attr("x1", x - radius * 2)
+                .attr("y1", y)
+                .attr("x2", x - radius)
+                .attr("y2", y)
+                .attr("stroke", "black")
+                .attr("stroke-width", "2");
+        }
+    });
+
+    // Define gradient
+    const defs = svg.append("defs");
+
+    const gradient = defs.append("linearGradient")
+        .attr("id", "grad1")
+        .attr("x1", "0%")
+        .attr("y1", "0%")
+        .attr("x2", "100%")
+        .attr("y2", "100%");
+
+    gradient.append("stop")
+        .attr("offset", "0%")
+        .attr("style", "stop-color:rgb(255,255,0);stop-opacity:1");
+
+    gradient.append("stop")
+        .attr("offset", "100%")
+        .attr("style", "stop-color:rgb(255,0,0);stop-opacity:1");
+
+    // Arrow markers for transitions
+    defs.append("marker")
+        .attr("id", "arrow")
+        .attr("viewBox", "0 0 10 10")
+        .attr("refX", "5")
+        .attr("refY", "5")
+        .attr("markerWidth", "6")
+        .attr("markerHeight", "6")
+        .attr("orient", "auto-start-reverse")
+        .append("path")
+        .attr("d", "M 0 0 L 10 5 L 0 10 z")
+        .attr("class", "marker");
+
+    states.forEach((state) => {
+        inputs.forEach((input) => {
+            const nextState = transitionTable[state][input];
+            if (nextState) {
+                const { x: x1, y: y1 } = statePositions[state];
+                const { x: x2, y: y2 } = statePositions[nextState];
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const dr = Math.sqrt(dx * dx + dy * dy);
+
+                const path = svg.append("path")
+                    .attr("d", `M${x1},${y1} A${dr},${dr} 0 0,1 ${x2},${y2}`)
+                    .attr("stroke", "black")
+                    .attr("stroke-width", "2")
+                    .attr("fill", "none")
+                    .attr("stroke-dasharray", "5,5") // Add this line for dashed effect
+                    .attr("marker-end", "url(#arrow)")
+                    .on("mouseover", function() { d3.select(this).attr("stroke", "#ff5733"); })
+                    .on("mouseout", function() { d3.select(this).attr("stroke", "black"); });
+
+                // Adjust position for overlapping transitions
+                const offsetX = dy / 8;
+                const offsetY = -dx / 8;
+
+                const midX = (x1 + x2) / 2 + offsetX;
+                const midY = (y1 + y2) / 2 + offsetY;
+                svg.append("text")
+                    .attr("x", midX)
+                    .attr("y", midY)
+                    .attr("fill", "red")
+                    .attr("font-size", "12")
+                    .text(input);
+            }
+        });
+    });
+
+    // Animate transitions step-by-step
+    let currentState = initialState;
+    const delay = 1000;
+    inputString.split('').forEach((char, index) => {
+        setTimeout(() => {
+            const nextState = transitionTable[currentState][char];
+            const { x: x1, y: y1 } = statePositions[currentState];
+            const { x: x2, y: y2 } = statePositions[nextState];
+
+            // Highlight current state
+            svg.selectAll("circle")
+                .attr("stroke", state => state === currentState ? "blue" : "black")
+                .attr("stroke-width", state => state === currentState ? "4" : "2");
+
+            // Draw transition line with animation
+            svg.append("path")
+                .attr("d", `M${x1},${y1} Q${(x1 + x2) / 2},${(y1 + y2) / 2 - 50} ${x2},${y2}`)
+                .attr("stroke", "blue")
+                .attr("stroke-width", "4")
+                .attr("fill", "none")
+                .attr("opacity", 0)
+                .transition()
+                .duration(1000)
+                .attr("opacity", 1)
+                .transition()
+                .duration(1000)
+                .attr("opacity", 0)
+                .remove();
+
+            currentState = nextState;
+
+            // Highlight next state
+            svg.selectAll("circle")
+                .attr("fill", state => state === nextState ? "#ffcc00" : (finalStates.includes(state) ? "url(#grad1)" : "white"));
+
+            // Display result after processing the input string
+            if (index === inputString.length - 1) {
+                setTimeout(() => {
+                    const isAccepted = finalStates.includes(currentState);
+                    displayResult(isAccepted ? "Accepted" : "Rejected");
+                }, 1000);
+            }
+        }, index * delay);
+    });
+}
+
+
+    </script>
+</body>
+</html>
